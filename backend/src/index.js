@@ -13,6 +13,8 @@ import { errorHandler } from "./middleware/error.middleware.js";
 import { testDatabaseTables } from "./utils/dbTest.js";
 import userRoutes from "./routes/user.routes.js";
 import { clerkMiddleware } from "@clerk/express";
+import uploadRoutes from "./routes/upload.routes.js";
+import imageRoutes from "./routes/image.routes.js";
 
 const app = express();
 
@@ -39,6 +41,8 @@ app.use(helmet());
 app.use(morgan("dev"));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
+app.use("/api/upload", uploadRoutes);
+app.use("/api/analyze/image", imageRoutes);
 
 app.use(clerkMiddleware());
 
