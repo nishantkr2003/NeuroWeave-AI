@@ -1,7 +1,10 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
+import { useAuth } from "@clerk/nextjs";
+import { useChatStore } from "@/store/chatStore";
+
 import {
   UploadCloud,
   FileImage,
@@ -11,12 +14,100 @@ import {
 } from "lucide-react";
 
 export default function UploadBox() {
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    console.log("Uploaded Files:", acceptedFiles);
-  }, []);
+  const { getToken, isSignedIn } = useAuth();
+
+  const [uploading, setUploading] = useState(false);
+  const { addMessage } = useChatStore();
+
+  const onDrop = useCallback(
+    async (acceptedFiles: File[]) => {
+      try {
+        if (!isSignedIn) {
+          alert("Please sign in first");
+          return;
+        }
+
+        const file = acceptedFiles[0];
+
+        if (!file) return;
+
+        setUploading(true);
+
+        const token = await getToken();
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await fetch("http://localhost:5000/api/upload", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        });
+
+        const data = await response.json();
+
+        console.log("UPLOAD RESPONSE:", data);
+
+        if (!response.ok) {
+          throw new Error(data.message || "Upload failed");
+        }
+
+        const media = data.media;
+
+        addMessage({
+          role: "user",
+          content: `Uploaded: ${media.original_name}`,
+        });
+
+        if (media.file_type === "image") {
+          const analysisResponse = await fetch(
+            "http://localhost:5000/api/analyze/image",
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                media_id: media.id,
+              }),
+            },
+          );
+
+          const analysisData = await analysisResponse.json();
+
+          if (analysisResponse.ok) {
+            addMessage({
+              role: "assistant",
+              content: analysisData.analysis,
+            });
+          } else {
+            addMessage({
+              role: "assistant",
+              content: "Image uploaded, but analysis failed.",
+            });
+          }
+        } else {
+          addMessage({
+            role: "assistant",
+            content: `Uploaded ${media.file_type} successfully. Analysis pipeline coming next.`,
+          });
+        }
+      } catch (error: any) {
+        console.error(error);
+        alert(error.message);
+      } finally {
+        setUploading(false);
+      }
+    },
+    [getToken, isSignedIn],
+  );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    multiple: false,
   });
 
   return (
@@ -37,13 +128,15 @@ export default function UploadBox() {
 
         <div>
           <p className="text-lg font-semibold">
-            {isDragActive
-              ? "Drop your files here..."
-              : "Drag & Drop or Click to Upload"}
+            {uploading
+              ? "Uploading..."
+              : isDragActive
+                ? "Drop your file here..."
+                : "Drag & Drop or Click to Upload"}
           </p>
 
           <p className="text-sm text-gray-400 mt-2">
-            Supports Images, Videos, Audio, PDFs, Notes, Charts
+            Supports Images, Videos, Audio, PDFs
           </p>
         </div>
 

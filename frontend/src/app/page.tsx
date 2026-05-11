@@ -17,7 +17,17 @@ export default function HomePage() {
       try {
         if (!isSignedIn) return;
 
-        const token = await getToken();
+        // IMPORTANT: Use Clerk JWT Template token
+        const token = await getToken({
+          template: "neon",
+        });
+
+        if (!token) {
+          console.error("No Clerk token found");
+          return;
+        }
+
+        console.log("TOKEN:", token);
 
         await API.post(
           "/users/sync",
@@ -28,10 +38,14 @@ export default function HomePage() {
             },
           },
         );
+        
 
         console.log("User synced successfully");
-      } catch (error) {
-        console.error("User sync failed:", error);
+      } catch (error: any) {
+        console.error(
+          "User sync failed:",
+          error.response?.data || error.message,
+        );
       }
     };
 
