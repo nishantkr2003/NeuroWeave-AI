@@ -15,6 +15,9 @@ import userRoutes from "./routes/user.routes.js";
 import { clerkMiddleware } from "@clerk/express";
 import uploadRoutes from "./routes/upload.routes.js";
 import imageRoutes from "./routes/image.routes.js";
+import videoRoutes from "./routes/video.routes.js";
+import audioRoutes from "./routes/audio.routes.js";
+import documentRoutes from "./routes/document.routes.js";
 
 const app = express();
 
@@ -43,6 +46,9 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use("/api/upload", uploadRoutes);
 app.use("/api/analyze/image", imageRoutes);
+app.use("/api/analyze/video", videoRoutes);
+app.use("/api/analyze/audio", audioRoutes);
+app.use("/api/analyze/document", documentRoutes);
 
 app.use(clerkMiddleware());
 

@@ -33,7 +33,9 @@ export default function UploadBox() {
 
         setUploading(true);
 
-        const token = await getToken();
+        const token = await getToken({
+          template: "neon",
+        });
 
         const formData = new FormData();
         formData.append("file", file);
@@ -61,6 +63,7 @@ export default function UploadBox() {
           content: `Uploaded: ${media.original_name}`,
         });
 
+        /* IMAGE ANALYSIS */
         if (media.file_type === "image") {
           const analysisResponse = await fetch(
             "http://localhost:5000/api/analyze/image",
@@ -86,10 +89,117 @@ export default function UploadBox() {
           } else {
             addMessage({
               role: "assistant",
-              content: "Image uploaded, but analysis failed.",
+              content:
+                analysisData.message ||
+                "Image uploaded successfully, but AI analysis is temporarily unavailable.",
+            });
+          }
+        } else if (media.file_type === "video") {
+          /* VIDEO ANALYSIS */
+          addMessage({
+            role: "assistant",
+            content:
+              "Processing video... extracting frames and analyzing scenes.",
+          });
+
+          const videoResponse = await fetch(
+            "http://localhost:5000/api/analyze/video",
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                media_id: media.id,
+              }),
+            },
+          );
+
+          const videoData = await videoResponse.json();
+
+          if (videoResponse.ok) {
+            addMessage({
+              role: "assistant",
+              content:
+                videoData.overallSummary ||
+                "Video processed successfully, but summary unavailable.",
+            });
+          } else {
+            addMessage({
+              role: "assistant",
+              content:
+                videoData.message || "Video uploaded, but analysis failed.",
+            });
+          }
+        } else if (media.file_type === "audio") {
+          addMessage({
+            role: "assistant",
+            content: "Processing audio... transcribing and analyzing.",
+          });
+
+          const audioResponse = await fetch(
+            "http://localhost:5000/api/analyze/audio",
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                media_id: media.id,
+              }),
+            },
+          );
+
+          const audioData = await audioResponse.json();
+
+          if (audioResponse.ok) {
+            addMessage({
+              role: "assistant",
+              content: audioData.summary,
+            });
+          } else {
+            addMessage({
+              role: "assistant",
+              content: "Audio uploaded, but analysis failed.",
+            });
+          }
+        } else if (media.file_type === "document") {
+          addMessage({
+            role: "assistant",
+            content: "Processing document... extracting text and analyzing.",
+          });
+
+          const documentResponse = await fetch(
+            "http://localhost:5000/api/analyze/document",
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                media_id: media.id,
+              }),
+            },
+          );
+
+          const documentData = await documentResponse.json();
+
+          if (documentResponse.ok) {
+            addMessage({
+              role: "assistant",
+              content: documentData.analysis,
+            });
+          } else {
+            addMessage({
+              role: "assistant",
+              content: "Document uploaded, but analysis failed.",
             });
           }
         } else {
+          /* OTHER FILE TYPES */
           addMessage({
             role: "assistant",
             content: `Uploaded ${media.file_type} successfully. Analysis pipeline coming next.`,
@@ -102,7 +212,7 @@ export default function UploadBox() {
         setUploading(false);
       }
     },
-    [getToken, isSignedIn],
+    [getToken, isSignedIn, addMessage],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
