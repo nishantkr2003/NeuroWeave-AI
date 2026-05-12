@@ -1,40 +1,47 @@
 "use client";
 
-import { UserButton, SignInButton, useUser } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
+
 import { Sparkles } from "lucide-react";
 
 export default function Navbar() {
-  const { isSignedIn } = useUser();
+  const { user } = useUser();
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-white/10 glass-card px-6 py-4 flex justify-between items-center backdrop-blur-xl">
+    <header className="h-14 border-b border-white/10 bg-[#0d1117]/95 backdrop-blur flex items-center justify-between px-6">
+      {/* Brand */}
       <div className="flex items-center gap-3">
-        <div className="p-2 rounded-xl bg-indigo-500/20">
-          <Sparkles className="text-indigo-400" size={22} />
+        <div className="w-9 h-9 rounded-2xl bg-indigo-500/15 flex items-center justify-center">
+          <Sparkles className="text-indigo-400" size={18} />
         </div>
 
         <div>
-          <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-            Multi-Modal AI Assistant
+          <h1 className="text-sm font-semibold text-white leading-none">
+            Multi-Modal AI
           </h1>
 
-          <p className="text-xs text-gray-400">
-            Image • Video • Audio • Document Intelligence
+          <p className="text-[11px] text-gray-500 leading-none mt-1">
+            Upload once. Ask anything.
           </p>
         </div>
       </div>
 
-      <div>
-        {!isSignedIn ? (
-          <SignInButton mode="redirect" forceRedirectUrl="/sign-in">
-            <button className="px-5 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-medium shadow-lg">
-              Get Started
-            </button>
-          </SignInButton>
-        ) : (
-          <UserButton afterSignOutUrl="/" />
-        )}
+      {/* User */}
+      <div className="flex items-center gap-3">
+        <div className="hidden sm:flex flex-col text-right">
+          <span className="text-sm text-white font-medium">
+            {user?.firstName || "User"}
+          </span>
+
+          <span className="text-xs text-gray-500">AI Workspace</span>
+        </div>
+
+        <img
+          src={user?.imageUrl || "/default-avatar.png"}
+          alt="Profile"
+          className="w-9 h-9 rounded-full border border-white/10"
+        />
       </div>
-    </nav>
+    </header>
   );
 }

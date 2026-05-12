@@ -24,27 +24,33 @@
 //     analysis,
 //   };
 // };
-
 import { analyzeImageWithGroq } from "./groq.service.js";
-import { getMediaById } from "../models/media.model.js";
+
+import { getMediaById, updateExtractedText } from "../models/media.model.js";
 
 export const analyzeImageByMediaId = async (mediaId, customPrompt = null) => {
+  /* Fetch media */
   const media = await getMediaById(mediaId);
 
   if (!media) {
     throw new Error("Media not found");
   }
 
+  /* Ensure correct media type */
   if (media.file_type !== "image") {
     throw new Error("Selected media is not an image");
   }
 
+  /* Run image intelligence */
   const analysis = await analyzeImageWithGroq(
     media.storage_path,
     media.mime_type,
     customPrompt ||
-      "Analyze this image in detail. Include OCR text, scene understanding, chart/table detection, and useful structured insights.",
+      "Analyze this image in detail. Include OCR text, scene understanding, chart/table detection, objects, visual insights, and useful structured intelligence.",
   );
+
+  /* Persist image intelligence for long-term AI memory */
+  await updateExtractedText(media.id, analysis);
 
   return {
     media,

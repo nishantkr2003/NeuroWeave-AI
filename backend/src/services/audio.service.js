@@ -1,6 +1,7 @@
 import Groq from "groq-sdk";
 import { transcribeAudio } from "./whisper.service.js";
 import { getMediaById } from "../models/media.model.js";
+import { updateExtractedText } from "../models/media.model.js";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
