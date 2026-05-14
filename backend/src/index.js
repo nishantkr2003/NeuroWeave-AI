@@ -18,6 +18,9 @@ import imageRoutes from "./routes/image.routes.js";
 import videoRoutes from "./routes/video.routes.js";
 import audioRoutes from "./routes/audio.routes.js";
 import documentRoutes from "./routes/document.routes.js";
+import conversationRoutes from "./routes/conversation.routes.js";
+import messageRoutes from "./routes/message.routes.js";
+
 
 const app = express();
 
@@ -49,6 +52,9 @@ app.use("/api/analyze/image", imageRoutes);
 app.use("/api/analyze/video", videoRoutes);
 app.use("/api/analyze/audio", audioRoutes);
 app.use("/api/analyze/document", documentRoutes);
+app.use("/api/conversations", conversationRoutes);
+app.use("/api/messages", messageRoutes);
+
 
 app.use(clerkMiddleware());
 

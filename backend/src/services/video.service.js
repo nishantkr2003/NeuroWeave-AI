@@ -56,27 +56,33 @@ import fs from "fs";
 
 import ffmpeg from "./ffmpeg.service.js";
 
-import { getMediaById } from "../models/media.model.js";
+import { getMediaById, updateExtractedText } from "../models/media.model.js";
+
 import { analyzeImageWithGroq } from "./groq.service.js";
 
 export const analyzeVideoByMediaId = async (mediaId) => {
+  /* Fetch media */
   const media = await getMediaById(mediaId);
 
   if (!media) {
     throw new Error("Media not found");
   }
 
+  /* Validate media type */
   if (media.file_type !== "video") {
     throw new Error("Selected media is not a video");
   }
 
+  /* Create frame output directory */
   const outputDir = path.join("frames", media.id);
 
   if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
+    fs.mkdirSync(outputDir, {
+      recursive: true,
+    });
   }
 
-  /* Metadata */
+  /* Extract metadata */
   const metadata = await new Promise((resolve, reject) => {
     ffmpeg.ffprobe(media.storage_path, (err, data) => {
       if (err) reject(err);
@@ -94,12 +100,12 @@ export const analyzeVideoByMediaId = async (mediaId) => {
       .run();
   });
 
-  /* Get extracted frames */
+  /* Gather extracted frames */
   const extractedFrames = fs
     .readdirSync(outputDir)
     .map((file) => path.join(outputDir, file));
 
-  /* Analyze first 10 frames using Groq */
+  /* Analyze first 10 frames */
   const frameAnalyses = [];
 
   for (const framePath of extractedFrames.slice(0, 10)) {
@@ -124,19 +130,20 @@ export const analyzeVideoByMediaId = async (mediaId) => {
     }
   }
 
-  /* Combine all frame analyses into video-level context */
+  /* Build combined frame intelligence */
   const combinedFrameContext = frameAnalyses
     .map((frame, index) => `Frame ${index + 1}: ${frame.analysis}`)
     .join("\n\n");
 
-  /* Generate overall video summary */
+  /* Generate full video summary */
   let overallSummary = "Video summary generation failed";
 
   try {
-    overallSummary = await analyzeImageWithGroq(
-      extractedFrames[0],
-      "image/jpeg",
-      `
+    if (extractedFrames.length > 0) {
+      overallSummary = await analyzeImageWithGroq(
+        extractedFrames[0],
+        "image/jpeg",
+        `
 You are analyzing a sequence of frames from a video.
 
 Frame-by-frame observations:
@@ -149,10 +156,25 @@ Based on all frames:
 4. Highlight key moments
 5. Provide a concise scene-by-scene breakdown
 `,
-    );
+      );
+    }
   } catch (error) {
     console.error("Overall video summary failed:", error);
   }
+
+  /* Persist video intelligence for multimodal memory */
+  await updateExtractedText(
+    media.id,
+    `
+VIDEO SUMMARY:
+${overallSummary}
+
+FRAME INSIGHTS:
+${frameAnalyses
+  .map((frame, index) => `Frame ${index + 1}: ${frame.analysis}`)
+  .join("\n")}
+      `,
+  );
 
   return {
     media,

@@ -2,7 +2,7 @@ import { pool } from "../utils/db.js";
 
 export const createMedia = async ({
   user_id,
-  conversation_id,
+  conversation_id = null,
   file_name,
   original_name,
   file_type,
@@ -46,6 +46,7 @@ export const createMedia = async ({
   ];
 
   const { rows } = await pool.query(query, values);
+
   return rows[0];
 };
 
@@ -54,11 +55,51 @@ export const getMediaByConversation = async (conversation_id) => {
     SELECT *
     FROM media
     WHERE conversation_id = $1
-    ORDER BY created_at DESC;
+    ORDER BY created_at ASC;
   `;
 
   const { rows } = await pool.query(query, [conversation_id]);
+
   return rows;
+};
+
+export const getMediaByUser = async (user_id) => {
+  const query = `
+    SELECT *
+    FROM media
+    WHERE user_id = $1
+    ORDER BY created_at DESC;
+  `;
+
+  const { rows } = await pool.query(query, [user_id]);
+
+  return rows;
+};
+
+export const attachMediaToConversation = async (media_id, conversation_id) => {
+  const query = `
+      UPDATE media
+      SET conversation_id = $1
+      WHERE id = $2
+      RETURNING *;
+    `;
+
+  const { rows } = await pool.query(query, [conversation_id, media_id]);
+
+  return rows[0];
+};
+
+export const updateExtractedText = async (media_id, extracted_text) => {
+  const query = `
+      UPDATE media
+      SET extracted_text = $1
+      WHERE id = $2
+      RETURNING *;
+    `;
+
+  const { rows } = await pool.query(query, [extracted_text, media_id]);
+
+  return rows[0];
 };
 
 export const getMediaById = async (media_id) => {
@@ -69,11 +110,20 @@ export const getMediaById = async (media_id) => {
   `;
 
   const { rows } = await pool.query(query, [media_id]);
+
   return rows[0];
 };
 
 export const deleteMedia = async (media_id) => {
-  await pool.query(`DELETE FROM media WHERE id = $1`, [media_id]);
+  await pool.query(
+    `
+    DELETE FROM media
+    WHERE id = $1
+    `,
+    [media_id],
+  );
 
-  return { success: true };
+  return {
+    success: true,
+  };
 };

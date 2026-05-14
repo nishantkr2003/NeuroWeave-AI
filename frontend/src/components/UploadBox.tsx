@@ -3,7 +3,8 @@
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { useAuth } from "@clerk/nextjs";
-import { useChatStore } from "@/store/chatStore";
+
+import useChatStore from "@/store/chatStore";
 
 import {
   UploadCloud,
@@ -17,13 +18,21 @@ export default function UploadBox() {
   const { getToken, isSignedIn } = useAuth();
 
   const [uploading, setUploading] = useState(false);
-  const { addMessage } = useChatStore();
+
+  const { addMessage, activeConversationId } = useChatStore();
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
       try {
+        /* Auth check */
         if (!isSignedIn) {
           alert("Please sign in first");
+          return;
+        }
+
+        /* Active chat required */
+        if (!activeConversationId) {
+          alert("No active conversation found.");
           return;
         }
 
@@ -33,13 +42,23 @@ export default function UploadBox() {
 
         setUploading(true);
 
+        /* Clerk token */
         const token = await getToken({
           template: "neon",
         });
 
+        if (!token) {
+          throw new Error("Authentication failed");
+        }
+
+        /* Upload with conversation_id */
         const formData = new FormData();
+
         formData.append("file", file);
 
+        formData.append("conversation_id", activeConversationId);
+
+        /* Upload file */
         const response = await fetch("http://localhost:5000/api/upload", {
           method: "POST",
           headers: {
@@ -50,23 +69,41 @@ export default function UploadBox() {
 
         const data = await response.json();
 
-        console.log("UPLOAD RESPONSE:", data);
-
         if (!response.ok) {
           throw new Error(data.message || "Upload failed");
         }
 
         const media = data.media;
 
+        /* User upload message */
         addMessage({
           role: "user",
           content: `Uploaded: ${media.original_name}`,
         });
 
-        /* IMAGE ANALYSIS */
+        /* Processing state */
+        addMessage({
+          role: "assistant",
+          content: `Processing ${media.file_type}...`,
+        });
+
+        /* Auto route analysis */
+        let analysisEndpoint = "";
+
         if (media.file_type === "image") {
+          analysisEndpoint = "/api/analyze/image";
+        } else if (media.file_type === "video") {
+          analysisEndpoint = "/api/analyze/video";
+        } else if (media.file_type === "audio") {
+          analysisEndpoint = "/api/analyze/audio";
+        } else if (media.file_type === "document") {
+          analysisEndpoint = "/api/analyze/document";
+        }
+
+        /* Run analysis if supported */
+        if (analysisEndpoint) {
           const analysisResponse = await fetch(
-            "http://localhost:5000/api/analyze/image",
+            `http://localhost:5000${analysisEndpoint}`,
             {
               method: "POST",
               headers: {
@@ -82,137 +119,39 @@ export default function UploadBox() {
           const analysisData = await analysisResponse.json();
 
           if (analysisResponse.ok) {
+            const finalAnalysis =
+              analysisData.analysis ||
+              analysisData.summary ||
+              analysisData.overallSummary ||
+              "Analysis completed successfully.";
+
             addMessage({
               role: "assistant",
-              content: analysisData.analysis,
+              content: finalAnalysis,
             });
           } else {
             addMessage({
               role: "assistant",
               content:
                 analysisData.message ||
-                "Image uploaded successfully, but AI analysis is temporarily unavailable.",
-            });
-          }
-        } else if (media.file_type === "video") {
-          /* VIDEO ANALYSIS */
-          addMessage({
-            role: "assistant",
-            content:
-              "Processing video... extracting frames and analyzing scenes.",
-          });
-
-          const videoResponse = await fetch(
-            "http://localhost:5000/api/analyze/video",
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                media_id: media.id,
-              }),
-            },
-          );
-
-          const videoData = await videoResponse.json();
-
-          if (videoResponse.ok) {
-            addMessage({
-              role: "assistant",
-              content:
-                videoData.overallSummary ||
-                "Video processed successfully, but summary unavailable.",
-            });
-          } else {
-            addMessage({
-              role: "assistant",
-              content:
-                videoData.message || "Video uploaded, but analysis failed.",
-            });
-          }
-        } else if (media.file_type === "audio") {
-          addMessage({
-            role: "assistant",
-            content: "Processing audio... transcribing and analyzing.",
-          });
-
-          const audioResponse = await fetch(
-            "http://localhost:5000/api/analyze/audio",
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                media_id: media.id,
-              }),
-            },
-          );
-
-          const audioData = await audioResponse.json();
-
-          if (audioResponse.ok) {
-            addMessage({
-              role: "assistant",
-              content: audioData.summary,
-            });
-          } else {
-            addMessage({
-              role: "assistant",
-              content: "Audio uploaded, but analysis failed.",
-            });
-          }
-        } else if (media.file_type === "document") {
-          addMessage({
-            role: "assistant",
-            content: "Processing document... extracting text and analyzing.",
-          });
-
-          const documentResponse = await fetch(
-            "http://localhost:5000/api/analyze/document",
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                media_id: media.id,
-              }),
-            },
-          );
-
-          const documentData = await documentResponse.json();
-
-          if (documentResponse.ok) {
-            addMessage({
-              role: "assistant",
-              content: documentData.analysis,
-            });
-          } else {
-            addMessage({
-              role: "assistant",
-              content: "Document uploaded, but analysis failed.",
+                `${media.file_type} uploaded, but analysis failed.`,
             });
           }
         } else {
-          /* OTHER FILE TYPES */
           addMessage({
             role: "assistant",
-            content: `Uploaded ${media.file_type} successfully. Analysis pipeline coming next.`,
+            content: `Uploaded ${media.file_type} successfully.`,
           });
         }
       } catch (error: any) {
         console.error(error);
-        alert(error.message);
+
+        alert(error.message || "Upload failed");
       } finally {
         setUploading(false);
       }
     },
-    [getToken, isSignedIn, addMessage],
+    [getToken, isSignedIn, addMessage, activeConversationId],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -239,14 +178,14 @@ export default function UploadBox() {
         <div>
           <p className="text-lg font-semibold">
             {uploading
-              ? "Uploading..."
+              ? "Uploading & analyzing..."
               : isDragActive
                 ? "Drop your file here..."
                 : "Drag & Drop or Click to Upload"}
           </p>
 
           <p className="text-sm text-gray-400 mt-2">
-            Supports Images, Videos, Audio, PDFs
+            Upload once, then ask anything
           </p>
         </div>
 
