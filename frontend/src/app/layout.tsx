@@ -1,21 +1,37 @@
-import "./globals.css";
-import Providers from "./providers";
 
-export const metadata = {
-  title: "Multi-Modal AI Assistant",
-  description:
-    "AI-powered platform for image, video, audio, and document intelligence",
+
+import type { Metadata } from 'next';
+import { IBM_Plex_Mono, Syne } from 'next/font/google';
+import './globals.css';
+import ToasterProvider from '@/components/ui/ToasterProvider';
+
+const syne = Syne({
+  variable: '--font-heading',
+  subsets: ['latin'],
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  variable: '--font-terminal',
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+});
+
+export const metadata: Metadata = {
+  title: 'NeuroWeave-AI',
+  description: 'NeuroWeave-AI brings multimodal image, video, audio, and document intelligence together.',
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body>
-        <Providers>{children}</Providers>
+    <html
+      lang="en"
+      className={`${syne.variable} ${ibmPlexMono.variable} h-full w-full antialiased`}
+    >
+      <body className="flex min-h-full w-full flex-col overflow-x-hidden bg-neutral-950 text-white">
+        <ToasterProvider />
+        {children}
       </body>
     </html>
   );
