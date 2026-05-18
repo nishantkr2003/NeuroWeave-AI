@@ -27,9 +27,10 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
   process.env.FRONTEND_URL,
   process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
+  "http://localhost:3000",
 ]
   .filter((origin): origin is string => Boolean(origin))
-  .map((origin) => origin.trim().replace(/\/+$/, ''));
+  .map((origin) => origin.trim().replace(/\/+$/, ""));
 
 // Ensure upload dir
 const uploadDir = path.join(process.cwd(), 'src/uploads');
@@ -96,7 +97,7 @@ const startServer = async (): Promise<void> => {
     configureCloudinary();
     startCleanupScheduler();
 
-    app.listen(PORT, () => {
+    app.listen(PORT, "0.0.0.0", () => {
       console.log(`\n Server running on port ${PORT}`);
       console.log(` Health: Health check passed!\n`);
     });
